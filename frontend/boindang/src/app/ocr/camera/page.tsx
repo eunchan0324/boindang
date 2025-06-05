@@ -127,6 +127,11 @@ export default function OcrCameraPage() {
   const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null);
   const [showPreviewScreen, setShowPreviewScreen] = useState(false);
 
+  // 줌 기능 관련 상태
+  const [zoomCapabilities, setZoomCapabilities] = useState<MediaTrackCapabilities['zoom'] | null>(null);
+  const [currentZoom, setCurrentZoom] = useState<number>(1);
+  const imageCaptureRef = useRef<ImageCapture | null>(null); // ImageCapture 참조
+
   // Ref to track if the initial camera setup and guide display has occurred
   const isInitialCameraSetupDone = useRef(false);
   const isStreamBeingInitialized = useRef(false); // Flag to prevent re-entrant calls
@@ -180,23 +185,65 @@ export default function OcrCameraPage() {
       stopMediaStream(videoRef.current.srcObject as MediaStream);
       videoRef.current.srcObject = null;
     }
-    // Also ensure the stream state is cleared if we are re-fetching
-    // This might seem redundant if setStream(null) is called later, but good for explicit cleanup
-    if (stream) { // Accessing stream state directly here
+    if (stream) {
       console.log("[Camera] Stopping existing stream from component state before new attempt.");
       stopMediaStream(stream);
-      setStream(null); // Explicitly clear the component's stream state too
+      setStream(null);
+      if (imageCaptureRef.current) {
+        imageCaptureRef.current = null;
+      }
     }
 
     try {
       const constraints: MediaStreamConstraints = {
-        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          // 추가적인 고급 제어 옵션 (지원 여부 확인 필요)
+          // zoom: currentZoom, // 초기 줌 값 설정 시도 (applyConstraints로 하는 것이 일반적)
+        },
         audio: false
       };
       console.log("[Camera] Requesting user media with constraints:", constraints);
       const newStream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log("[Camera] Got new stream:", newStream);
       setStream(newStream);
+
+      const videoTrack = newStream.getVideoTracks()[0];
+      if (videoTrack) {
+        // ImageCapture API 인스턴스 생성
+        if (typeof ImageCapture !== 'undefined') {
+          imageCaptureRef.current = new ImageCapture(videoTrack);
+          console.log("[Camera] ImageCapture initialized.");
+
+          // 카메라 기능 확인 (줌 포함)
+          const capabilities = videoTrack.getCapabilities();
+          console.log("[Camera] Track Capabilities:", capabilities);
+          if (capabilities.zoom) {
+            setZoomCapabilities(capabilities.zoom);
+            // 현재 줌 값 가져오기 (getSettings 사용)
+            const settings = videoTrack.getSettings();
+            if (settings.zoom) {
+              setCurrentZoom(settings.zoom);
+              console.log("[Camera] Initial zoom set from settings:", settings.zoom);
+            } else {
+              // capabilities.zoom.min이 존재하면 그 값으로, 아니면 1로 초기화
+              const initialZoom = capabilities.zoom.min !== undefined ? capabilities.zoom.min : 1;
+              setCurrentZoom(initialZoom);
+              console.log("[Camera] Initial zoom set to min capability or 1:", initialZoom);
+              // 필요하다면 applyConstraints로 초기 줌 설정
+              // await videoTrack.applyConstraints({ advanced: [{ zoom: initialZoom }] });
+            }
+          } else {
+            setZoomCapabilities(null);
+            console.log("[Camera] Zoom not supported by this track.");
+          }
+        } else {
+          console.warn("[Camera] ImageCapture API is not supported in this browser.");
+        }
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
         console.log("[Camera] Stream assigned to video element. videoRef.current.videoWidth:", videoRef.current.videoWidth);
@@ -674,10 +721,39 @@ export default function OcrCameraPage() {
     }
   };
 
-  const handleCapture = () => {
+  const handleCapture = async () => { // async로 변경
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
+
+      if (imageCaptureRef.current) {
+        try {
+          console.log("[Camera] Capturing photo using ImageCapture API...");
+          // ImageCapture API를 사용하여 고화질 사진 촬영
+          // photoSettings으로 해상도 등을 지정할 수 있으나, 기본값으로도 고화질을 기대할 수 있음
+          // const photoSettings = { imageWidth: video.videoWidth * 2, imageHeight: video.videoHeight * 2 }; 
+          // const blob = await imageCaptureRef.current.takePhoto(photoSettings);
+          const blob = await imageCaptureRef.current.takePhoto();
+          const imageDataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+
+          setPreviewImageSrc(imageDataUrl);
+          setShowPreviewScreen(true);
+          setIsGuideVisible(false);
+          console.log("[Camera] Photo captured with ImageCapture API. Size:", blob.size, "Type:", blob.type);
+          return; // ImageCapture 성공 시 여기서 종료
+        } catch (captureError) {
+          console.error("[Camera] Error using ImageCapture.takePhoto():", captureError);
+          // ImageCapture 실패 시 Canvas fallback 사용
+        }
+      }
+
+      // Fallback: Canvas를 사용한 캡처 (기존 방식)
+      console.log("[Camera] Falling back to canvas capture.");
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const context = canvas.getContext('2d');
@@ -717,6 +793,40 @@ export default function OcrCameraPage() {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    // 줌 값 초기화는 여기서 하지 않음. 사용자가 설정한 줌 유지.
+    // 필요하다면 setCurrentZoom(zoomCapabilities?.min ?? 1); 등으로 초기화
+  };
+
+  // 줌 변경 핸들러
+  const handleZoomChange = async (direction: 'in' | 'out') => {
+    if (!stream || !zoomCapabilities) return;
+
+    const videoTrack = stream.getVideoTracks()[0];
+    if (!videoTrack) return;
+
+    let newZoom = currentZoom;
+    const step = zoomCapabilities.step || 0.1; // step이 없으면 0.1로 가정
+
+    if (direction === 'in') {
+      newZoom = Math.min(currentZoom + step, zoomCapabilities.max ?? 10);
+    } else {
+      newZoom = Math.max(currentZoom - step, zoomCapabilities.min ?? 1);
+    }
+
+    // 소수점 한자리로 반올림 (부동소수점 오류 방지)
+    newZoom = parseFloat(newZoom.toFixed(1));
+
+
+    try {
+      await videoTrack.applyConstraints({ advanced: [{ zoom: newZoom }] });
+      setCurrentZoom(newZoom);
+      console.log("[Camera] Zoom applied:", newZoom);
+    } catch (err) {
+      console.error("[Camera] Error applying zoom constraint:", err);
+      // 에러 발생 시 이전 줌 값으로 복원 시도 또는 사용자에게 알림
+      // const settings = videoTrack.getSettings();
+      // if (settings.zoom) setCurrentZoom(settings.zoom);
+    }
   };
 
   // "다시 시도" 버튼 핸들러
@@ -729,6 +839,11 @@ export default function OcrCameraPage() {
       stopMediaStream(stream);
     }
     setStream(null); // 스트림 상태 초기화
+    if (imageCaptureRef.current) { // ImageCapture 참조도 초기화
+      imageCaptureRef.current = null;
+    }
+    setZoomCapabilities(null); // 줌 기능 상태 초기화
+    setCurrentZoom(1); // 현재 줌 상태 초기화
 
     setError(null);
     setIsProcessing(false);
@@ -756,6 +871,26 @@ export default function OcrCameraPage() {
           <button className="p-2" onClick={handleCloseClick}>
             <X size={28} weight="bold" />
           </button>
+          {/* 줌 컨트롤 UI (zoomCapabilities가 있을 때만 표시) */}
+          {zoomCapabilities && (
+            <div className="flex items-center text-white bg-black bg-opacity-50 p-1 rounded">
+              <button
+                onClick={() => handleZoomChange('out')}
+                disabled={currentZoom <= (zoomCapabilities.min ?? 1)}
+                className="px-2 py-1 text-lg disabled:opacity-50"
+              >
+                -
+              </button>
+              <span className="px-2 text-sm">{currentZoom.toFixed(1)}x</span>
+              <button
+                onClick={() => handleZoomChange('in')}
+                disabled={currentZoom >= (zoomCapabilities.max ?? 10)}
+                className="px-2 py-1 text-lg disabled:opacity-50"
+              >
+                +
+              </button>
+            </div>
+          )}
           <button onClick={handleShowGuide} className="text-sm font-semibold px-3 py-1.5 rounded bg-black bg-opacity-40">
             촬영 가이드
           </button>
@@ -911,6 +1046,7 @@ export default function OcrCameraPage() {
       <input
         type="file"
         accept="image/*"
+        capture="environment"
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"

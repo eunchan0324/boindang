@@ -48,7 +48,7 @@ const surprisingBadIngredients = [
 
 const surprisingGoodIngredients = [
   {
-    id: 'vitaminD',
+    id: 'vitamin_d',
     name: '비타민 D',
     description: "칼슘 흡수를 돕고 뼈 건강 유지 및 면역 기능에 중요한 역할을 해요.",
     tag: '뼈튼튼면역UP',
