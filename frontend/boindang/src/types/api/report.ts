@@ -40,6 +40,8 @@ export type ReportPageProps = {
     productImageUrl?: string; // 이미지 URL 필드 추가 (API 응답에 따라 확인 필요)
     ingredientImageUrl?: string;
     nutritionImageUrl?: string;
+    nutritionSummary?: string;
+    ingredientSummary?: string;
     totalWeight?: string; // API 응답에 없으므로, 필요시 추가 또는 고정값 사용
     kcal?: number;
     giGrade?: string;

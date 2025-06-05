@@ -9,11 +9,96 @@ import { ApiError, ApiResponse } from "@/types/api";
 import { ReportPageProps, ReportResultData } from "@/types/api/report";
 import { useToast } from "@/context/ToastContext";
 
+type StatusType = '안전' | '주의' | '위험';
 // GI 색상 설정
 const giColors = {
   safe: '#22c55e',   // 안전 - 녹색 (0-39)
   caution: '#facc15', // 주의 - 노란색 (40-69)
   danger: '#e53e3e'   // 위험 - 빨간색 (70-100)
+};
+
+function determineNutrientStatus(apiIndex: number): StatusType {
+  if (apiIndex <= 55) {
+    return '안전';
+  } else if (apiIndex >= 56 && apiIndex <= 69) {
+    return '주의';
+  } else {
+    return '위험';
+  }
+}
+
+const getStatusTextColor = (status: StatusType) => {
+  const colorMap = {
+    '안전': '#22c55e',  // green-500
+    '주의': '#eab308',    // yellow-500
+    '위험': '#ef4444',     // red-500
+  };
+  return colorMap[status]
+};
+
+  // 연한 배경 색상을 위한 인라인 스타일 함수
+  const getStatusLightBgColor = (status: StatusType) => {
+    const colorMap = {
+    '안전': '#dbeafe', // blue-50
+    '주의': '#dcfce7',  // green-50
+    '위험': '#fef9c3',    // yellow-50
+  };
+  return colorMap[status]
+};
+
+function calculateActualAngle(giIndex: number): number {
+  const TOTAL_ARC_DEGREES = 180;
+  let baseAngle = 0; // 구간 매핑으로 계산될 기본 각도
+
+  // 1. 각 GI 구간을 시각적인 60도 섹션에 매핑 (이전의 "정확한 구간 매핑")
+  // 각도 기준: 180도 = 왼쪽 끝, 0도 = 오른쪽 끝
+  if (giIndex <= 55) { // 안전 구간 (0-55) -> 시각적 각도 180도 ~ 120도
+    const percentage = giIndex / 55;
+    baseAngle = TOTAL_ARC_DEGREES - (percentage * 60);
+  } else if (giIndex <= 69) { // 주의 구간 (56-69) -> 시각적 각도 120도 ~ 60도
+    const percentage = (giIndex - 56) / (69 - 56);
+    baseAngle = (TOTAL_ARC_DEGREES - 60) - (percentage * 60);
+  } else { // 위험 구간 (70-100) -> 시각적 각도 60도 ~ 0도
+    const percentage = (giIndex - 70) / (100 - 70);
+    baseAngle = (TOTAL_ARC_DEGREES - 120) - (percentage * 60);
+  }
+
+  // 최종 각도는 0~180도 사이로 제한
+  return Math.min(Math.max(baseAngle, 0), TOTAL_ARC_DEGREES);
+}
+
+const chartCx = 80;
+const chartCy = 90;
+const innerRadius = 50;
+const outerRadius = 70;
+const RADIAN = Math.PI / 180;
+
+
+const renderNeedle = (angleForNeedle: number) => {
+  const length = (innerRadius + 2 * outerRadius) / 3;
+  const sin = Math.sin(-RADIAN * angleForNeedle);
+  const cos = Math.cos(-RADIAN * angleForNeedle);
+
+  const needleCenterX = chartCx;
+  const needleCenterY = chartCy;
+  const radiusSmallCircle = 5;
+
+  const point1X = needleCenterX + radiusSmallCircle * sin;
+  const point1Y = needleCenterY - radiusSmallCircle * cos;
+  const point2X = needleCenterX - radiusSmallCircle * sin;
+  const point2Y = needleCenterY + radiusSmallCircle * cos;
+  const topPointX = needleCenterX + length * cos;
+  const topPointY = needleCenterY + length * sin;
+
+  return [
+    <circle key="needle-circle" cx={needleCenterX} cy={needleCenterY} r={radiusSmallCircle} fill="#4A4A4A" stroke="none" />,
+    <path
+      key="needle-path"
+      d={`M${point1X} ${point1Y} L${point2X} ${point2Y} L${topPointX} ${topPointY} Z`}
+      stroke="none"
+      fill="#4A4A4A"
+    />,
+  ];
 };
 
 export default function ReportPage({ params: paramsPromise }: ReportPageProps) {
@@ -160,7 +245,7 @@ export default function ReportPage({ params: paramsPromise }: ReportPageProps) {
   return (
     <div className="min-h-screen bg-gray-50 p-5 pb-30">
       {/* 헤더 */}
-      <header className="flex items-center justify-center mb-6 relative">
+      <header className="flex items-center justify-center mb-5 relative">
         <div className="absolute left-0">
           <Link href="/" className="flex items-center text-gray-600 hover:text-gray-900">
             <House size={24} weight="bold" />
@@ -170,8 +255,23 @@ export default function ReportPage({ params: paramsPromise }: ReportPageProps) {
       </header>
 
       {/* 제품명 표시 */}
-      <div className="text-xl font-bold text-gray-800 text-start mb-8 bg-white rounded-2xl shadow-md p-5 transform transition-all hover:shadow-lg">
-        {report.productName || "제품명 없음"}
+      <div className="text-xl font-bold text-gray-800 text-start mb-5 bg-white rounded-2xl shadow-md p-5 transform transition-all hover:shadow-lg">
+        <div className="flex flex-row justify-between gap-3">
+          <div className="text-xl text-start text-gray-800 mt-2">{report.productName || "제품명 없음"}</div>
+          <div className="text-sm font-light text-start text-gray-400 mt-2">{report.kcal}kcal</div>
+        </div>
+        <div className="flex flex-row items-start gap-3 mt-2"> 
+        <div className="flex flex-row items-start flex-wrap gap-3 mt-2">
+          <div className="flex items-start  gap-1">
+            <span className="bg-violet-100 text-violet-700 px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap">영양정보</span>
+            <span className="text-xs font-light text-gray-700">{report.nutritionSummary}</span>
+          </div>
+          <div className="flex items-start gap-1">
+            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap">원재료</span>
+            <span className="text-xs font-light text-gray-700">{report.ingredientSummary}</span>
+          </div>
+        </div>
+        </div>
       </div>
 
       {/* 통합 GI 지수 & 탄단지 비율 */}
@@ -180,10 +280,9 @@ export default function ReportPage({ params: paramsPromise }: ReportPageProps) {
           <div className="flex items-center mb-4">
             <ChartLine size={22} className="text-violet-600 mr-2" weight="bold" />
             <h2 className="font-bold text-lg text-gray-800">통합 GI 지수 ({report.giIndex || '정보없음'})
-              {report.giGrade && <span className={`ml-2 text-sm px-2 py-0.5 rounded ${report.giGrade === '위험' ? 'bg-red-100 text-red-600' :
-                report.giGrade === '주의' ? 'bg-yellow-100 text-yellow-600' :
-                  'bg-green-100 text-green-600'
-                }`}>{report.giGrade}</span>}
+               <span className="ml-2 text-sm px-2 py-1 rounded text-center items-center justify-center" style={{ color: getStatusTextColor(determineNutrientStatus(report.giIndex || 0)), backgroundColor: getStatusLightBgColor(determineNutrientStatus(report.giIndex || 0)) }}>
+                {determineNutrientStatus(report.giIndex || 0)}
+               </span>
             </h2>
           </div>
           <div className="flex flex-col items-center">
@@ -228,17 +327,9 @@ export default function ReportPage({ params: paramsPromise }: ReportPageProps) {
                     <Cell fill="transparent" />
                   </Pie>
                   <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+                  {renderNeedle(calculateActualAngle(report.giIndex || 0))}
                 </PieChart>
               </ResponsiveContainer>
-              <div
-                className="absolute bottom-0 left-1/2 w-[2px] h-[60px] bg-gray-800 origin-bottom z-10 transition-transform duration-500 ease-out"
-                style={{
-                  transform: `translateX(-50%) rotate(${(report.giIndex || 0) * 1.8 - 90}deg)`
-                }}
-              >
-                <div className="w-[6px] h-[6px] rounded-full bg-gray-800 absolute -top-[3px] -left-[2px]"></div>
-              </div>
-              <div className="absolute bottom-0 left-1/2 w-[10px] h-[10px] bg-gray-800 rounded-full transform -translate-x-1/2 z-20"></div>
             </div>
             <div className="flex justify-between w-full px-4 mt-4">
               <div className="flex flex-col items-center">

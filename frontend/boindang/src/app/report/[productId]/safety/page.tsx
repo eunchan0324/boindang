@@ -11,7 +11,7 @@ import BackArrowIcon from '@/components/common/BackArrowIcon';
 // 동적 import, SSR 비활성화
 const SafetyChart = dynamic(() => import("@/components/chart/SafetyChart"), {
   ssr: false,
-});
+}) as React.ComponentType<{ value: number }>;
 
 // --- 타입 정의 시작 ---
 type StatusType = 'deficiency' | 'recommend' | 'caution' | 'danger' | 'unknown';
@@ -83,20 +83,15 @@ const statusInfo: Record<StatusType, { color: string; text: string; description:
   }
 };
 
-// API grade를 내부 status 키로 매핑
-const apiGradeToStatusType: { [key: string]: StatusType } = {
-  '결핍': 'deficiency',
-  '권장': 'recommend',
-  '주의': 'caution',
-  '위험': 'danger',
-};
-
-// nutrientDetails의 grade와 percent를 기반으로 최종 StatusType 결정
-function determineNutrientStatus(apiGrade: string): StatusType {
-  const baseStatus = apiGradeToStatusType[apiGrade] || 'unknown';
-  
-  // 이제 매핑이 직접적으로 이루어지므로 추가 로직이 필요하지 않음
-  return baseStatus;
+// nutrientDetails의 percent를 기반으로 최종 StatusType 결정
+function determineNutrientStatus(apiIndex: number): StatusType {
+  if (apiIndex <= 55) {
+    return 'recommend';
+  } else if (apiIndex >= 56 && apiIndex <= 69) {
+    return 'caution';
+  } else {
+    return 'danger';
+  }
 }
 
 const nutrientIconMap: { [key: string]: string } = {
@@ -223,11 +218,11 @@ export default function SafetyPage() {
       id: nutrient.name, // 고유 ID로 사용
       name: nutrient.name,
       value: nutrient.percent, // 프로그레스 바에 사용할 값 (0-100)
-      status: determineNutrientStatus(nutrient.grade),
+      status: determineNutrientStatus(nutrient.percent),
       icon: nutrientIconMap[nutrient.name] || nutrientIconMap.default,
-      description: statusInfo[determineNutrientStatus(nutrient.grade)]?.description || '',
+      description: statusInfo[determineNutrientStatus(nutrient.percent)]?.description || '',
       apiValue: nutrient.value, // 실제 g/mg 값 (필요시 사용)
-      apiGrade: nutrient.grade,
+      apiIndex: nutrient.percent,
     }));
   }, [reportData]);
 
@@ -257,22 +252,19 @@ export default function SafetyPage() {
   
   // GI 지수 관련 텍스트 및 스타일
   const giIndex = reportData.giIndex ?? 0;
-  const giGrade = reportData.giGrade ?? 'unknown';
+  const giStatus = determineNutrientStatus(giIndex);
   let giMessage = `이 제품의 예상 GI 지수는 ${giIndex}으로, `; 
   let giMessageColor = "text-gray-700";
 
-  if (giGrade === '위험') {
-    giMessage += `혈당 지수를 <span class="font-bold text-red-500">${giGrade} 수준</span>으로 증가시킬 수 있어요. 각별한 주의가 필요합니다.`;
+  if (giStatus === 'danger') {
+    giMessage += `혈당 지수를 <span class="font-bold text-red-500">위험 수준</span>으로 증가시킬 수 있어요. 각별한 주의가 필요합니다.`;
     giMessageColor = "text-red-600";
-  } else if (giGrade === '주의') {
-    giMessage += `혈당 지수를 <span class="font-bold text-yellow-500">${giGrade} 수준</span>으로 증가시킬 수 있어요. 섭취량 조절이 필요할 수 있습니다.`;
+  } else if (giStatus === 'caution') {
+    giMessage += `혈당 지수를 <span class="font-bold text-yellow-500">주의 수준</span>으로 증가시킬 수 있어요. 섭취량 조절이 필요할 수 있습니다.`;
     giMessageColor = "text-yellow-600";
-  } else if (giGrade === '권장') {
-    giMessage += `혈당 지수가 <span class="font-bold text-green-500">${giGrade} 수준</span>입니다. 비교적 안심하고 섭취할 수 있습니다.`;
+  } else if (giStatus === 'recommend') {
+    giMessage += `혈당 지수가 <span class="font-bold text-green-500">안전 수준</span>입니다. 비교적 안심하고 섭취할 수 있습니다.`;
     giMessageColor = "text-green-600";
-  } else if (giGrade === '결핍') {
-    giMessage += `혈당 지수가 <span class="font-bold text-blue-500">${giGrade} 수준</span>입니다. 추가 섭취가 권장됩니다.`;
-    giMessageColor = "text-blue-600";
   } else {
     giMessage += "GI 지수 등급 정보가 충분하지 않습니다.";
   }
@@ -294,7 +286,7 @@ export default function SafetyPage() {
           <div className={`bg-gray-100 rounded-xl py-3 px-4 items-center mb-3 flex flex-col sm:flex-row justify-around gap-3 ${giMessageColor}`}>
             <div className={`flex flex-col items-center rounded-xl p-2 min-w-[100px]`}>
               <div className={`text-sm font-medium ${giMessageColor} opacity-80`}>예상 GI 지수</div>
-              <div className="text-3xl font-bold" style={{ color: getStatusTextColor(apiGradeToStatusType[giGrade] || 'unknown') }}>{giIndex}</div>
+              <div className="text-3xl font-bold" style={{ color: getStatusTextColor(giStatus) }}>{giIndex}</div>
             </div>
             <div className="text-sm font-light flex-1 text-center sm:text-left" dangerouslySetInnerHTML={{ __html: giMessage }} />
           </div>
