@@ -11,6 +11,7 @@ import lombok.Getter;
 @AllArgsConstructor
 public class IngredientReportResponse {
 	private String name;
+	private String newName;
 	private int gi;
 	private String shortMessage;
 	private String keyword;

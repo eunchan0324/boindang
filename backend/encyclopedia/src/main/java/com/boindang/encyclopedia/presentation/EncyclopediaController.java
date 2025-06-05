@@ -49,7 +49,7 @@ public class EncyclopediaController implements EncyclopediaApi {
     public ApiResponses<IngredientListResponse> getIngredientsByCategory(
         @RequestParam String category,
         @RequestParam(required = false) String sort,
-        @RequestParam(defaultValue = "desc") String order,
+        @RequestParam(defaultValue = "asc") String order,
         @RequestParam(defaultValue = "15") int size,
         @RequestParam(defaultValue = "0") int page
     ) {

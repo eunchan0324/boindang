@@ -3,10 +3,21 @@ package com.boindang.encyclopedia.application;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.unit.Fuzziness;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.stereotype.Service;
 
 import com.boindang.encyclopedia.domain.IngredientDictionary;
@@ -25,25 +36,35 @@ public class ReportService {
 
 	private final ReportElasticsearchRepository reportRepository;
 	private final EncyclopediaRepository ingredientRepository;
+	private final RestHighLevelClient client;
 
 	public UserReportResponse getUserReport(List<String> ingredientNames, String userType) {
-		// 1. ingredients, reports 조회
-		List<ReportDocument> reports = reportRepository.findByNameIn(ingredientNames);
-		List<IngredientDictionary> ingredients = ingredientRepository.findByNameIn(ingredientNames);
+		Map<String, String> resolvedMap = resolveActualNames(ingredientNames);
+		List<String> resolvedNames = new ArrayList<>(resolvedMap.values());
 
-		// 2. 이름으로 빠르게 찾기 위한 map 구성
+		List<ReportDocument> reports = reportRepository.findByNameIn(resolvedNames);
+		List<IngredientDictionary> ingredients = ingredientRepository.findByNameIn(resolvedNames);
+
 		Map<String, IngredientDictionary> ingredientMap = ingredients.stream()
-			.collect(Collectors.toMap(IngredientDictionary::getName, i -> i));
+			.collect(Collectors.toMap(
+				i -> normalize(i.getName()),  // name 정규화
+				i -> i
+			));
 
 		Map<String, ReportDocument> reportMap = reports.stream()
-			.collect(Collectors.toMap(ReportDocument::getName, r -> r));
+			.collect(Collectors.toMap(ReportDocument::getName, r -> r, (a, b) -> a));
 
 		List<IngredientReportResponse> ingredientResponses = new ArrayList<>();
 		List<RiskIngredientData> riskyList = new ArrayList<>();
 
-		for (String name : ingredientNames) {
-			IngredientDictionary ingredient = ingredientMap.get(name);
-			ReportDocument report = reportMap.get(name);
+		for (Map.Entry<String, String> entry : resolvedMap.entrySet()) {
+			String original = entry.getKey();     // 사용자가 입력한 값
+			String resolved = entry.getValue().trim();   // 실제 검색된 성분
+			System.out.println("사용자가 입력한 성분: " + original);
+			System.out.println("실제 검색된 성분: " + resolved);
+
+			IngredientDictionary ingredient = ingredientMap.get(normalize(resolved));
+			ReportDocument report = reportMap.get(resolved);
 
 			String riskLevel = report != null
 				? getRiskLevelByUserType(
@@ -61,7 +82,8 @@ public class ReportService {
 			List<String> userMessage = report != null ? getMessageByUserType(report, userType) : List.of("정보 없음", "해당 성분에 대한 설명이 없습니다.");
 
 			ingredientResponses.add(IngredientReportResponse.builder()
-				.name(name)
+				.name(original) // ✅ 추가됨
+				.newName(resolved)
 				.gi(ingredient != null ? ingredient.getGi() : 0)
 				.shortMessage(report != null ? report.getShortMessage() : "설명이 없습니다.")
 				.keyword(report != null ? report.getKeyword() : "정보 없음")
@@ -69,20 +91,21 @@ public class ReportService {
 				.riskLevel(riskLevel)
 				.build());
 
+			System.out.println("🔥 [ING] " + ingredient);
+			System.out.println("🔥 [ING DESC] " + (ingredient != null ? ingredient.getDescription() : "null"));
+			System.out.println("🔥 [ING GI] " + (ingredient != null ? ingredient.getGi() : "null"));
 
 			if ("주의".equals(riskLevel) || "높음".equals(riskLevel)) {
 				riskyList.add(new RiskIngredientData(score, userMessage));
 			}
 		}
 
-		// 3. 위험 성분 정렬 및 Top 3 추출
 		List<RiskIngredientSummary> topRisks = reports.stream()
 			.filter(doc -> {
 				IngredientDictionary ingredient = ingredientMap.get(doc.getName());
 				String fallbackRisk = (ingredient != null && ingredient.getRiskLevel() != null)
 					? ingredient.getRiskLevel().getLabel()
 					: "정보 없음";
-
 				String risk = getRiskLevelByUserType(doc.getRiskLevel(), userType, fallbackRisk);
 				return "주의".equals(risk) || "높음".equals(risk);
 			})
@@ -99,11 +122,14 @@ public class ReportService {
 			.limit(3)
 			.toList();
 
-
 		return UserReportResponse.builder()
 			.ingredients(ingredientResponses)
 			.topRisks(topRisks)
 			.build();
+	}
+
+	private String normalize(String input) {
+		return input == null ? "" : input.trim().replaceAll("\\s+", "");
 	}
 
 	private String getRiskLevelByUserType(ReportDocument.RiskLevel reportRisk, String userType, String ingredientRiskLevel) {
@@ -137,4 +163,41 @@ public class ReportService {
 	}
 
 	private record RiskIngredientData(int score, List<String> message) {}
+
+	public Map<String, String> resolveActualNames(List<String> queries) {
+		Map<String, String> resolvedMap = new LinkedHashMap<>(); // 순서 유지
+
+		for (String query : queries) {
+			String bestMatch = null;
+			float topScore = -1f;
+
+			SearchRequest request = new SearchRequest("reports");
+			SearchSourceBuilder builder = new SearchSourceBuilder()
+				.query(QueryBuilders.boolQuery()
+					.should(QueryBuilders.matchQuery("name", query).fuzziness(Fuzziness.AUTO).boost(2.0f))
+					.should(QueryBuilders.prefixQuery("name", query).boost(1.0f))
+				)
+				.size(5);
+
+			request.source(builder);
+
+			try {
+				SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+				for (SearchHit hit : response.getHits()) {
+					Map<String, Object> src = hit.getSourceAsMap();
+					if (src.get("name") != null && hit.getScore() > topScore) {
+						bestMatch = src.get("name").toString();
+						topScore = hit.getScore();
+					}
+				}
+			} catch (Exception e) {
+				// log
+			}
+
+			resolvedMap.put(query, bestMatch != null ? bestMatch : query);
+		}
+
+		return resolvedMap;
+	}
+
 }

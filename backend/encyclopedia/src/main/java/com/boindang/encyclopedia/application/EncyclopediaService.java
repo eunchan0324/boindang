@@ -73,7 +73,11 @@ public class EncyclopediaService {
             .from(page * size)  // ✅ 페이징 처리 시작 인덱스
             .size(size);        // ✅ 한 페이지 크기
 
-        if (sort != null && (sort.equals("gi") || sort.equals("sweetness"))) {
+        if (sort == null || sort.equals("name")) {
+            // ✅ 기본 정렬: name.keyword 기준 오름차순 (가나다순)
+            SortOrder sortOrder = "desc".equalsIgnoreCase(order) ? SortOrder.DESC : SortOrder.ASC;
+            sourceBuilder.sort(new FieldSortBuilder("name.keyword").order(sortOrder));
+        } else if (sort.equals("gi") || sort.equals("sweetness")) {
             SortOrder sortOrder = "asc".equalsIgnoreCase(order) ? SortOrder.ASC : SortOrder.DESC;
             sourceBuilder.sort(new FieldSortBuilder(sort).order(sortOrder));
         }
