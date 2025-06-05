@@ -33,6 +33,8 @@ async def call_clova_ocr_with_url(image_url: str) -> str:
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(ocr_url, headers=headers, json=body)
+        print("Status Code:", response.status_code)
+        print("Response Body:", response.text)
         response.raise_for_status()
         data = response.json()
 

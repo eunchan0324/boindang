@@ -54,5 +54,6 @@ async def process_images(image_urls: dict, ingredient_url: str, nutrition_url: s
         "result": result,
     }
 
-    print(f"✅ 제품 분석 완료 - 제품명: {product_name}, ID: {inserted_id}")
+    # print(f"✅ 제품 분석 완료 - 제품명: {product_name}, ID: {inserted_id}")
+    print(f"✅ 제품 분석 완료")
     return response

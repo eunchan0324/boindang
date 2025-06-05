@@ -25,7 +25,7 @@ async def call_gpt_api(messages: list[dict]) -> str:
     }
 
     print("\n🚀 [GPT 호출 시작]")
-    print("🔸 메시지:", messages)
+    # print("🔸 메시지:", messages)
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(GPT_API_URL, headers=headers, json=payload)
@@ -33,7 +33,7 @@ async def call_gpt_api(messages: list[dict]) -> str:
         data = response.json()
 
     print("✅ [GPT 응답 수신 완료]")
-    print("🔹 응답 내용:", data)
+    # print("🔹 응답 내용:", data)
 
     return data["choices"][0]["message"]["content"]
 
@@ -63,7 +63,7 @@ async def ask_gpt_ingredient(ingredient_text: str) -> dict:
         - 단, 괄호 안에 용도와 함께 실제 성분이 명시되어 있다면(예: 감미료/에리스리톨), **용도는 무시하고 성분은 children에 포함**
 
         3. categorizedIngredients
-        성분을 용도별로 분류
+        성분을 용도별로 분류, 최소 단위 구성요소를 기준으로 분류
         분류 항목: 감미료, 산도조절제, 유화제, 점질제, 착향료, 착색료, 보존제, 산화방지제, 팽창제, 염류, 보충제, 기타
         괄호 안 용도 설명은 여기에 반영할 것
 

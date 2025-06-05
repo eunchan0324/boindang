@@ -14,7 +14,7 @@ def clean_ingredient_text(text: str) -> str:
     for keyword in trash_keywords:
         text = re.sub(keyword, '', text, flags=re.IGNORECASE)
 
-    print(text)
+    # print(text)
     return text.strip()
 
 def clean_nutrition_text(text: str) -> str:
@@ -41,5 +41,5 @@ def clean_nutrition_text(text: str) -> str:
     joined = re.sub(r'(\d+)\s*g', r'\1g', joined)
     joined = re.sub(r'(\d+)\s*mg', r'\1mg', joined)
 
-    print(joined)
+    # print(joined)
     return joined.strip()
