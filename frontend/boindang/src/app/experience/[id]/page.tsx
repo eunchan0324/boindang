@@ -16,9 +16,19 @@ function getTimeDiff(target: string) {
   if (diff <= 0) return null;
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-  const minutes = Math.floor((diff / (1000 * 60)) % 60);
-  const seconds = Math.floor((diff / 1000) % 60);
+  const minutes = Math.floor((diff / 60) % 60);
+  const seconds = Math.floor(diff % 60);
   return { days, hours, minutes, seconds };
+}
+
+function getRemainingDays(deadline: string, status?: string) {
+  if (status === '종료') return '종료';
+  const end = new Date(deadline);
+  const now = new Date();
+  const diff = end.getTime() - now.getTime();
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  if (days <= 0) return '마감';
+  return `${days}일 남음`;
 }
 
 export default function ExperienceDetailPage() {
@@ -162,6 +172,13 @@ export default function ExperienceDetailPage() {
             disabled
           >
             신청완료
+          </button>
+        ) : experience.status === '종료' || getRemainingDays(experience.deadline, experience.status) === '마감' ? (
+          <button
+            className="w-full bg-gray-300 text-white py-3 rounded-none text-sm font-medium border-t"
+            disabled
+          >
+            모집 마감
           </button>
         ) : (
           <button

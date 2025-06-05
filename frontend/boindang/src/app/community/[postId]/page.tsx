@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image'; // Next.js Image 컴포넌트 임포트
 import { DotsThree, Heart, ChatCircle, User } from '@phosphor-icons/react';
-import { getPostDetailById, getImageListByIds, deletePost, toggleLikePost } from '../../../api/community'; // API 함수 임포트
-import { ApiPostDetailData, ApiCommentItem } from '../../../types/api/community'; // ApiResponseDeletePost 제거
+import { getPostDetailById, getImageListByIds, deletePost, toggleLikePost, createComment } from '../../../api/community'; // API 함수 임포트
+import { ApiPostDetailData } from '../../../types/api/community';
 import ConfirmModal from '../../../components/common/ConfirmModal'; // ConfirmModal 임포트
 import { toast } from 'react-hot-toast';
 import BackArrowIcon from '@/components/common/BackArrowIcon';
@@ -107,23 +107,21 @@ export default function PostDetailPage() {
     }
   };
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim() || !post) return;
-    // TODO: API 호출하여 댓글 등록
-    console.log('댓글 등록:', commentText);
-    // 임시로 댓글 추가 (실제로는 API 응답 후 상태 업데이트)
-    // 이 부분은 API 연동 후 실제 댓글 객체 구조에 맞춰야 합니다.
-    const newComment: ApiCommentItem = {
-      commentId: Date.now(), // 임시 ID
-      authorNickname: '현재사용자', // 실제 사용자 정보 필요
-      authorId: 0, // 실제 사용자 ID 필요
-      createdAt: new Date().toISOString(),
-      content: commentText,
-      isMine: true, // 본인이 작성한 댓글로 가정
-    };
-    setPost(currentPost => currentPost ? { ...currentPost, comments: [...(currentPost.comments || []), newComment], commentCount: (currentPost.commentCount || 0) + 1 } : null);
-    setCommentText('');
+    // 댓글 등록 API 호출
+    const response = await createComment(post.postId, commentText);
+    if (response.success) {
+      // 성공 시 댓글 목록 새로고침
+      const apiResponse = await getPostDetailById(post.postId);
+      if (apiResponse.success && apiResponse.data) {
+        setPost(apiResponse.data);
+      }
+      setCommentText('');
+    } else {
+      alert(response.error?.message || '댓글 등록에 실패했습니다.');
+    }
   };
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);

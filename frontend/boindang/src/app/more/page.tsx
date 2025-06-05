@@ -251,23 +251,25 @@ export default function MorePage() {
                 </Link>
 
                 <div className="relative bg-moreblue h-full w-full rounded-xl col-span-5 col-start-3 row-span-2 row-end-5 shadow-sm cursor-pointer">
-                    <span className="text-white text-lg font-bold absolute bottom-3 right-3 z-10">내가 쓴 글/댓글</span>
-                    <motion.div
-                        initial={{
-                            width: "0%",
-                        }}
-                        animate={{
-                            width: "50%",
-                        }}
-                        transition={{
-                            duration: 2,
-                            width: {
+                    <Link href="/more/my-posts" className="absolute inset-0">
+                        <span className="text-white text-lg font-bold absolute bottom-3 right-3 z-10">내가 쓴 글</span>
+                        <motion.div
+                            initial={{
+                                width: "0%",
+                            }}
+                            animate={{
+                                width: "50%",
+                            }}
+                            transition={{
                                 duration: 2,
-                                type: "spring",
-                                bounce: 0.5,
-                            },
-                        }}
-                        className="bg-moregray absolute bottom-0 right-0 h-full w-1/2 rounded-xl flex items-end justify-end p-3" />
+                                width: {
+                                    duration: 2,
+                                    type: "spring",
+                                    bounce: 0.5,
+                                },
+                            }}
+                            className="bg-moregray absolute bottom-0 right-0 h-full w-1/2 rounded-xl flex items-end justify-end p-3" />
+                    </Link>
                 </div>
             </div>
             <BottomNavBar />

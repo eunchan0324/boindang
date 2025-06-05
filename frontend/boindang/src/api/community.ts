@@ -2,6 +2,7 @@ import { ApiPostListData, ApiImageIdListRequest, ApiImageListItem, ApiPostDetail
 import apiClient from '../lib/apiClient';
 import { AxiosError } from 'axios';
 import type { ApiResponse } from '@/types/api';
+import type { ApiPostItem } from '@/types/api/community';
 
 interface GetCommunityPostsParams {
   category?: string;
@@ -169,6 +170,56 @@ export const toggleLikePost = async (postId: number): Promise<ApiResponse<null>>
       error: {
         status: axiosError.response?.data?.status || 'CLIENT_ERROR',
         message: axiosError.response?.data?.message || `게시글(${postId}) 좋아요 처리에 실패했습니다.`,
+      },
+      success: false,
+    };
+  }
+};
+
+/**
+ * 게시글에 댓글 작성 API
+ * @param postId 댓글을 작성할 게시글 ID
+ * @param content 댓글 내용
+ * @returns Promise<ApiResponse<null>>
+ */
+export const createComment = async (
+  postId: number,
+  content: string
+): Promise<ApiResponse<null>> => {
+  try {
+    const response = await apiClient.post<ApiResponse<null>>(
+      `/community/${postId}/comments`,
+      { content }
+    );
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ status?: string; message?: string }>;
+    return {
+      data: null,
+      error: {
+        status: axiosError.response?.data?.status || 'CLIENT_ERROR',
+        message: axiosError.response?.data?.message || '댓글 작성에 실패했습니다.',
+      },
+      success: false,
+    };
+  }
+};
+
+/**
+ * 내가 쓴 글 목록 조회 API
+ * @returns Promise<ApiResponse<ApiPostItem[]>>
+ */
+export const getMyPosts = async (): Promise<ApiResponse<ApiPostItem[]>> => {
+  try {
+    const response = await apiClient.get<ApiResponse<ApiPostItem[]>>('/community/my/posts');
+    return response.data;
+  } catch (error) {
+    const axiosError = error as import('axios').AxiosError<{ status?: string; message?: string }>;
+    return {
+      data: null,
+      error: {
+        status: axiosError.response?.data?.status || 'CLIENT_ERROR',
+        message: axiosError.response?.data?.message || '내가 쓴 글을 불러오는데 실패했습니다.',
       },
       success: false,
     };

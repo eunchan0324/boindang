@@ -12,6 +12,7 @@ export interface Experience {
     deadline: string;
     status: string;
     capacity: number;
+    currentApplicants: number;
     hashtags: string[];
     applied: boolean;
   }

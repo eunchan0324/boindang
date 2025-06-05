@@ -24,6 +24,7 @@ interface ExperienceCardProps {
   tags: string[];
   remainingDays: number | string;
   maxParticipants?: number;
+  currentParticipants?: number;
   openDateTime?: string;
   applied: boolean;
   status?: string;
@@ -38,6 +39,7 @@ export default function ExperienceCard({
   tags,
   remainingDays,
   maxParticipants = 0,
+  currentParticipants = 0,
   openDateTime = '',
   applied,
   status = '',
@@ -101,6 +103,9 @@ export default function ExperienceCard({
               <div className="mb-2">
                 <span className="text-[#6C2FF2] font-semibold text-sm">
                   선착순 {maxParticipants}명
+                </span>
+                <span className="text-gray-400 text-xs ml-2">
+                  ({currentParticipants}명 신청완료)
                 </span>
               </div>
             )}

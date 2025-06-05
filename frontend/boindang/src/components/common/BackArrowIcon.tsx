@@ -5,7 +5,6 @@ interface BackArrowIconProps {
   size?: number;
   className?: string;
   weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
-  fill?: string;
 }
 
 export default function BackArrowIcon({ size = 24, className = '', weight = 'bold' }: BackArrowIconProps) {

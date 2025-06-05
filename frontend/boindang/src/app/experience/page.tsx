@@ -65,6 +65,7 @@ export default function ExperiencePage() {
           tags: item.hashtags,
           remainingDays: getRemainingDays(item.deadline, item.status),
           maxParticipants: item.capacity,
+          currentParticipants: item.currentApplicants,
           openDateTime: item.startDate
             ? item.startDate.slice(5, 10).replace('-', '/') + ' ' + item.startDate.slice(11, 16)
             : '',
