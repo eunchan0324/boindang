@@ -51,6 +51,11 @@ public class NutritionService {
 		logger.debug("유저 조회 시작 --------------------------------");
 		UserInfo userInfo = getUserInfoOrThrow(userId);
 
+		// ✅ 발표용
+		if ("26".equals(userId)) {
+			productId = "682d5a46e31db6072a55aa00"; // 예: 제로 초콜릿칩쿠키
+		}
+
 		// 1. 제품 조회
 		logger.debug("제품 조회 시작 --------------------------------");
 		ProductNutrition product = productRepo.findById(productId)

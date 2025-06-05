@@ -17,8 +17,11 @@ import java.util.Map;
 public class NutritionReportResponse {
 
     private String productName; // 제품 이름
-    private String ingredientImageUrl;
     private String nutritionImageUrl;
+    private String ingredientImageUrl;
+    private String nutritionSummary;
+    private String ingredientSummary;
+
 
     private int kcal;           // 총 열량
 
@@ -38,6 +41,8 @@ public class NutritionReportResponse {
                 .productName(report.getProductName())
                 .nutritionImageUrl(report.getNutritionImageUrl())
                 .ingredientImageUrl(report.getIngredientImageUrl())
+                .nutritionSummary(report.getNutritionSummary())
+                .ingredientSummary(report.getIngredientSummary())
                 .kcal(report.getKcal())
                 .giIndex(report.getGiIndex())
                 .giGrade(report.getGiGrade())
