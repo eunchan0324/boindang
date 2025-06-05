@@ -1,5 +1,7 @@
 package com.boindang.community.controller;
 
+import java.util.List;
+
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,6 +17,7 @@ import com.boindang.community.dto.response.ApiResponses;
 import com.boindang.community.dto.response.CreatePostResponse;
 import com.boindang.community.dto.response.PostListResponse;
 import com.boindang.community.dto.response.PostResponse;
+import com.boindang.community.dto.response.PostSimpleResponse;
 import com.boindang.community.service.PostService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -70,5 +73,16 @@ public class PostController {
 		postService.deletePost(postId, Long.parseLong(userId));
 		return ApiResponses.success("게시글 삭제가 완료되었습니다.");
 	}
+
+	@Operation(summary = "내가 쓴 게시글 조회", description = "사용자가 작성한 게시글 목록을 조회합니다.")
+	@GetMapping("/my/posts")
+	public ApiResponses<List<PostSimpleResponse>> getMyPosts(
+		@RequestHeader("X-User-Id") String userId,
+		@RequestParam(defaultValue = "0") int page,
+		@RequestParam(defaultValue = "10") int size
+	) {
+		return ApiResponses.success(postService.getPostsByUser(Long.parseLong(userId), page, size));
+	}
+
 }
 
