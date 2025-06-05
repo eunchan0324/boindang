@@ -74,7 +74,7 @@ public class Campaign {
     @Transient
     public CampaignStatus calculateStatus(LocalDateTime now) {
         if (now.isBefore(this.startDate)) return CampaignStatus.PENDING;
-        if (now.isAfter(this.endDate)) return CampaignStatus.CLOSED;
+        if (now.isAfter(this.endDate) || this.capacity == this.currentApplicants) return CampaignStatus.CLOSED;
         return CampaignStatus.OPEN;
     }
 
@@ -91,6 +91,13 @@ public class Campaign {
             throw new CampaignException("모집 정원이 마감되었습니다.");
         }
         this.currentApplicants++;
+    }
+
+    public void close() {
+        if (this.status == CampaignStatus.CLOSED) {
+            return; // 이미 종료된 상태라면 무시
+        }
+        this.status = CampaignStatus.CLOSED;
     }
 
 }

@@ -11,5 +11,6 @@ public interface CampaignApplicationRepository extends JpaRepository<CampaignApp
     boolean existsByCampaignIdAndUserId(Long campaignId, Long userId);
     @Query("SELECT ca FROM CampaignApplication ca JOIN FETCH ca.campaign WHERE ca.userId = :userId")
     List<CampaignApplication> findWithCampaignByUserId(@Param("userId") Long userId);
+    long countByCampaign_Id(Long campaignId);
 
 }

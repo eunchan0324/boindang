@@ -8,4 +8,5 @@ import lombok.Data;
 public class ApplyResultResponse {
 	private Long campaignId;
 	private boolean isSelected;
+	private String message;
 }

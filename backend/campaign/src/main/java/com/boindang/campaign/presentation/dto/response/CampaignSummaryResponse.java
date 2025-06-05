@@ -23,6 +23,7 @@ public class CampaignSummaryResponse {
 	private LocalDateTime deadline;
 	private String status; // 모집 예정, 진행중, 종료
 	private int capacity;
+	private int currentApplicants;
 	private List<String> hashtags;
 	private boolean isApplied;
 
@@ -36,6 +37,7 @@ public class CampaignSummaryResponse {
 			.deadline(campaign.getEndDate())
 			.status(convertStatusToLabel(campaign.getStatus()))
 			.capacity(campaign.getCapacity())
+			.currentApplicants(campaign.getCurrentApplicants())
 			.hashtags(campaign.getHashtags())
 			.isApplied(isApplied)
 			.build();

@@ -49,6 +49,11 @@ eureka:
   instance:
     hostname: ${HOST_IP}
 
+logging:
+  level:
+    root: info
+    com.boindang.campaign: debug
+
 #eureka:
 #  client:
 #    enabled: false
